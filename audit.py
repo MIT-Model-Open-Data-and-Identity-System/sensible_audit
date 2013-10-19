@@ -69,7 +69,7 @@ class Audit:
 
 			if self.shouldCopyToFile(severity,type,tag,doc): self.copyToFile(severity, type, doc)
 
-	def d(self, type, tag, doc, onlyfile=False):
+	def d(self, type, tag, doc, onlyfile=True):
 		self.log('DEBUG', type, tag, doc, onlyfile)
 		
 	def w(self, type, tag, doc, onlyfile=False):
