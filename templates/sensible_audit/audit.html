@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load staticfiles %}
+{% load bootstrap_toolkit %}
+{% block extra_head %}
+<link rel="stylesheet" type="text/css" href="{% static "css/dc.css" %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+<h1>Audit Dashboard</h1>
+</div>
+<div class="row">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Researcher</th>
+                <th>Remote Address</th>
+                <th>Resource</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for access in accesses %}
+            <tr>
+                <td>{{ access.timestamp }}</td>
+                <td>{{ access.GET.bearer_token.0 }}</td>
+                <td>{{ access.remote_addr }}</td>
+                <td>{{ access.module }}</td>
+                <td>{{ access.message }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}
+
+{% block js %}
+{% endblock %}

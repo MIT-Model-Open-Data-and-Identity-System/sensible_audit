@@ -1,40 +1,79 @@
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.conf import settings
+from authorization_manager import authorization_manager
 import bson.json_util as json
-import time
-
-import log
 import database
-import conf
+import logging
 
-class Audit:
-	db = None
+log = logging.getLogger('sensible.' + __name__)
 
-	def __init__(self):
-		pass
-	
-	def copyToFile(self, severity, type, doc):
-		doc['type']=type
-		log.log(severity,json.dumps(doc))
 
-	def shouldCopyToFile(self, severity, type, tag, doc):
-		if severity=='ERROR': return True
-		else: return False	
+def build_request_dict(request, data=None):
+    """
+        Builds a dictionary with relevant parameters from an
+        HTTP Request.
+    """
+    req = {}
+    req['path'] = request.get_full_path()
+    req['method'] = request.method
+    req['host'] = request.get_host()
+    req['remote_addr'] = request.META.get('REMOTE_ADDR')
+    if req['remote_addr'] in getattr(settings, 'INTERNAL_IPS', []):
+        req['remote_addr'] = (request.META.get('HTTP_X_FORWARDED_FOR') or
+                              req['remote_addr'])
+    req['remote_host'] = request.META.get('REMOTE_HOST')
+    req['user_agent'] = request.META.get('HTTP_USER_AGENT')
+    if request.method == 'GET':
+        req['GET'] = request.GET
+    elif request.method == 'POST':
+        req['POST'] = request.POST
+    if hasattr(request, 'user'):
+        req['user'] = request.user.username
+    if data is not None and isinstance(data, dict):
+        req.update(data)
+    else:
+        req['data'] = data
+    return req
 
-	def log(self, severity, type, tag, doc, onlyfile):
-		if onlyfile:
-			 self.copyToFile(severity, type, doc)
-		else:
-			self.db = database.Database()
-			doc['TIMESTAMP']= time.time()
-			doc['tag']= tag
-			doc['severity']= severity
-			self.db.insert(doc=doc, collection=type)
-			if self.shouldCopyToFile(severity, type, tag, doc): self.copyToFile(severity, type, doc)
+def visualization(request):
+    """
+     Shows information about who has access the user's data.
+    """
+    return get_data(request)
 
-	def d(self, type, tag, doc, onlyfile=True):
-		self.log('DEBUG', type, tag, doc, onlyfile)
-		
-	def w(self, type, tag, doc, onlyfile=False):
-		self.log('WARNING', type, tag, doc, onlyfile)
+def accesses(request):
+    return get_data(request)
 
-	def e(self, type, tag, doc, onlyfile=False):
-		self.log('ERROR', type, tag, doc, onlyfile)
+def get_data(request):
+    auth = authorization_manager.authenticate_token(request)
+
+    if 'error' in auth:
+        response = {'meta': {'status':
+                            {'status': 'error', 'code': 401,
+                             'desc': auth['error']}}}
+        log.error('authentication error', extra=build_request_dict(request))
+        return HttpResponse(json.dumps(response),
+                            status=401, content_type="application/json")
+
+    log.info('audit data accessed', extra=build_request_dict(request))
+    accesses = dataBuild(request, request.user.username)
+    return render(request, 'sensible_audit/audit.html', {'accesses': accesses})
+
+def dataBuild(request, user):
+    db = database.AuditDB()
+    accesses = db.get_accesses(user)
+    return accesses
+
+class BadRequestException(Exception):
+    def __init__(self, value):
+        self.value = value
+    
+    def __init__(self, status, code, description):
+        self.value = {}
+        self.value['status'] = status
+        self.value['code'] = code
+        self.value['desc'] = description
+    
+    def __str__(self):
+        return repr(self.value)

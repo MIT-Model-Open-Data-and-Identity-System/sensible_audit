@@ -1,9 +1,6 @@
 import logging
+import datetime
 
-from bson.timestamp import Timestamp
-from pymongo import Connection
-from pymongo.collection import Collection
-from pymongo.errors import OperationFailure, PyMongoError
 
 class AuditorFormatter(logging.Formatter):
 
@@ -13,15 +10,15 @@ class AuditorFormatter(logging.Formatter):
         """Formats LogRecord into python dictionary."""
         # Standard document
         document = {
-            'timestamp': Timestamp(int(record.created), int(record.msecs)),
+            'timestamp': datetime.datetime.fromtimestamp(record.created, None),
             'level': record.levelname,
             #'thread': record.thread,
             #'threadName': record.threadName,
             'message': record.getMessage(),
             'loggerName': record.name,
             #'fileName': record.pathname,
-            #'module': record.module,
-            #'method': record.funcName,
+            'module': record.module,
+            'method': record.funcName,
             #'lineNumber': record.lineno
         }
         
